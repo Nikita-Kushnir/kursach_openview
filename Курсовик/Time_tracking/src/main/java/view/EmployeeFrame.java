@@ -4,7 +4,6 @@ import controller.EmployeeController;
 import model.User;
 import model.TimeRecord;
 import model.Leave;
-import util.PDFGenerator;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
@@ -15,7 +14,7 @@ import java.util.List;
 public class EmployeeFrame extends JFrame {
     private final User user;
     private JButton startDayBtn, startPauseBtn, endPauseBtn, endDayBtn;
-    private JButton vacationBtn, sickBtn, reportBtn;
+    private JButton vacationBtn, sickBtn;
     private boolean isWorkDayStarted = false;
     private boolean isPauseActive = false;
 
@@ -54,7 +53,7 @@ public class EmployeeFrame extends JFrame {
         timePanel.add(endPauseBtn);
         timePanel.add(endDayBtn);
 
-        // Панель отпусков/больничных и отчета
+        // Панель отпусков/больничных
         JPanel rightPanel = new JPanel(new BorderLayout(10, 10));
         JPanel leavePanel = new JPanel(new GridLayout(2, 1, 10, 10));
         vacationBtn = createButton("Взять отпуск", e -> handleLeaveRequest("VACATION"));
@@ -62,13 +61,7 @@ public class EmployeeFrame extends JFrame {
         leavePanel.add(vacationBtn);
         leavePanel.add(sickBtn);
 
-        // Кнопка создания отчета
-        JPanel reportPanel = new JPanel();
-        reportBtn = createButton("Создать отчет", e -> generateReport());
-        reportPanel.add(reportBtn);
-
         rightPanel.add(leavePanel, BorderLayout.CENTER);
-        rightPanel.add(reportPanel, BorderLayout.SOUTH);
 
         JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         JButton logoutBtn = createButton("Выйти", e -> logout());
@@ -77,7 +70,6 @@ public class EmployeeFrame extends JFrame {
         mainPanel.add(timePanel, BorderLayout.CENTER);
         mainPanel.add(rightPanel, BorderLayout.EAST);
         mainPanel.add(bottomPanel, BorderLayout.SOUTH);
-
 
         add(mainPanel);
     }
@@ -132,10 +124,9 @@ public class EmployeeFrame extends JFrame {
 
     private void logout() {
         new LoginFrame().setVisible(true);
-        dispose(); // Закрываем текущее окно
+        dispose();
     }
 
-    // Метод для обработки запросов на отпуск/больничный
     private void handleLeaveRequest(String type) {
         LeaveRequestDialog dialog = new LeaveRequestDialog(this, type);
         dialog.setVisible(true);
@@ -146,35 +137,10 @@ public class EmployeeFrame extends JFrame {
             String comment = dialog.getComment();
 
             if (EmployeeController.requestLeave(user.getId(), type, start, end, comment)) {
-                JOptionPane.showMessageDialog(this, "Заявка отправлена!");
+                JOptionPane.showMessageDialog(this, "Заявка отправлена на рассмотрение администратору!");
             } else {
                 JOptionPane.showMessageDialog(this, "Ошибка при отправке заявки!");
             }
         }
-    }
-
-    // Метод для генерации отчета
-    private void generateReport() {
-        List<TimeRecord> timeRecords = EmployeeController.getTimeRecords(user.getId());
-        List<Leave> leaves = EmployeeController.getLeaves(user.getId());
-
-        if (timeRecords.isEmpty() && leaves.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Нет данных для отчета!");
-            return;
-        }
-
-        String filename = "report_" + user.getId() + ".pdf";
-        PDFGenerator.generateReport(timeRecords, leaves, filename);
-        JOptionPane.showMessageDialog(this,
-                "Отчет сохранен в файл: " + filename,
-                "Успешно",
-                JOptionPane.INFORMATION_MESSAGE
-        );
-    }
-
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(() ->
-                new EmployeeFrame(new User(1, "Test User", "test", "EMPLOYEE")).setVisible(true)
-        );
     }
 }

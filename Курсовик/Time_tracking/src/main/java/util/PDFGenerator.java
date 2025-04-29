@@ -4,12 +4,15 @@ import com.itextpdf.text.*;
 import com.itextpdf.text.pdf.*;
 import model.Leave;
 import model.TimeRecord;
+import model.User;
 import java.io.FileOutputStream;
+import java.util.*;
 import java.util.List;
 
 public class PDFGenerator {
     private static final Font TITLE_FONT = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 18, BaseColor.BLACK);
     private static final Font SECTION_FONT = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 14, new BaseColor(30, 144, 255));
+    private static final Font SUB_SECTION_FONT = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12, BaseColor.DARK_GRAY);
     private static final Font TABLE_HEADER_FONT = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12, BaseColor.WHITE);
     private static final Font TABLE_BODY_FONT = FontFactory.getFont(FontFactory.HELVETICA, 10, BaseColor.BLACK);
 
@@ -19,16 +22,15 @@ public class PDFGenerator {
             PdfWriter writer = PdfWriter.getInstance(document, new FileOutputStream(filename));
             document.open();
 
-            // Главный заголовок
             Paragraph mainTitle = new Paragraph("Employee's Work Report Card", TITLE_FONT);
             mainTitle.setAlignment(Element.ALIGN_CENTER);
             mainTitle.setSpacingAfter(20);
             document.add(mainTitle);
 
-            // Секция рабочего времени
-            addTimeSection(document, timeRecords);
+            if (!timeRecords.isEmpty()) {
+                addTimeSection(document, timeRecords);
+            }
 
-            // Секция отсутствий (если есть данные)
             if (!leaves.isEmpty()) {
                 addLeaveSection(document, leaves);
             }
@@ -40,32 +42,72 @@ public class PDFGenerator {
         }
     }
 
-    private static void addTimeSection(Document doc, List<TimeRecord> records) throws DocumentException {
-        if (records.isEmpty()) return;
+    public static void generateFullReport(
+            HashMap<User, List<TimeRecord>> timeRecords,
+            HashMap<User, List<Leave>> leaves,
+            String filename
+    ) {
+        Document document = new Document();
+        try {
+            PdfWriter writer = PdfWriter.getInstance(document, new FileOutputStream(filename));
+            document.open();
 
-        // Заголовок секции
+            Paragraph mainTitle = new Paragraph("Общий отчет по сотрудникам", TITLE_FONT);
+            mainTitle.setAlignment(Element.ALIGN_CENTER);
+            mainTitle.setSpacingAfter(20);
+            document.add(mainTitle);
+
+            // Объединяем всех сотрудников из timeRecords и leaves
+            Set<User> allUsers = new HashSet<>(timeRecords.keySet());
+            allUsers.addAll(leaves.keySet());
+
+            for (User user : allUsers) {
+                List<TimeRecord> userTimeRecords = timeRecords.getOrDefault(user, new ArrayList<>());
+                List<Leave> userLeaves = leaves.getOrDefault(user, new ArrayList<>());
+                addUserSection(document, user, userTimeRecords, userLeaves);
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            document.close();
+        }
+    }
+
+    private static void addUserSection(Document doc, User user, List<TimeRecord> records, List<Leave> leaves)
+            throws DocumentException {
+        Paragraph userHeader = new Paragraph("Сотрудник: " + user.getName(), SUB_SECTION_FONT);
+        userHeader.setSpacingBefore(15);
+        doc.add(userHeader);
+
+        // Добавляем рабочее время, если есть данные
+        if (!records.isEmpty()) {
+            addTimeSection(doc, records);
+        }
+
+        // Добавляем отпуска/больничные, если есть данные
+        if (!leaves.isEmpty()) {
+            addLeaveSection(doc, leaves);
+        }
+
+        doc.add(Chunk.NEWLINE);
+    }
+
+    private static void addTimeSection(Document doc, List<TimeRecord> records) throws DocumentException {
         Paragraph title = new Paragraph("Working Hours", SECTION_FONT);
         title.setSpacingAfter(15);
         doc.add(title);
 
-        // Таблица
         PdfPTable table = new PdfPTable(4);
         table.setWidthPercentage(100);
         table.setWidths(new float[]{25f, 25f, 25f, 25f});
         table.setSpacingBefore(10);
 
-        // Заголовки таблицы
         addTableHeader(table, "Date", "Start", "End", "Completed");
-
-        // Данные
         for (TimeRecord record : records) {
             addTableCell(table, record.getStartTime().toLocalDate().toString());
             addTableCell(table, formatTime(record.getStartTime().toLocalTime()));
-
-            String endTime = record.getEndTime() != null
-                    ? formatTime(record.getEndTime().toLocalTime())
-                    : "Not Completed";
-
+            String endTime = (record.getEndTime() != null) ? formatTime(record.getEndTime().toLocalTime()) : "Not Completed";
             addTableCell(table, endTime);
             addTableCell(table, formatDuration(record.getTotalSeconds()));
         }
@@ -75,30 +117,22 @@ public class PDFGenerator {
     }
 
     private static void addLeaveSection(Document doc, List<Leave> leaves) throws DocumentException {
-        // Заголовок секции
         Paragraph title = new Paragraph("Absences", SECTION_FONT);
         title.setSpacingBefore(20);
         title.setSpacingAfter(15);
         doc.add(title);
 
-        // Таблица
         PdfPTable table = new PdfPTable(4);
         table.setWidthPercentage(100);
         table.setWidths(new float[]{20f, 20f, 20f, 40f});
 
-        // Заголовки таблицы
         addTableHeader(table, "Type", "Start Date", "End Date", "Reason");
-
-        // Данные
         for (Leave leave : leaves) {
-            String type = leave.getType().equalsIgnoreCase("VACATION")
-                    ? "Vacation"
-                    : "Sick Leave";
-
+            String type = leave.getType().equalsIgnoreCase("VACATION") ? "Vacation" : "Sick Leave";
             addTableCell(table, type);
             addTableCell(table, leave.getStartDate().toString());
             addTableCell(table, leave.getEndDate().toString());
-            addTableCell(table, leave.getComment() != null ? leave.getComment() : "-");
+            addTableCell(table, (leave.getComment() != null) ? leave.getComment() : "-");
         }
 
         doc.add(table);
@@ -107,7 +141,7 @@ public class PDFGenerator {
     private static void addTableHeader(PdfPTable table, String... headers) {
         for (String header : headers) {
             PdfPCell cell = new PdfPCell(new Phrase(header, TABLE_HEADER_FONT));
-            cell.setBackgroundColor(new BaseColor(30, 144, 255)); // Синий цвет
+            cell.setBackgroundColor(new BaseColor(30, 144, 255));
             cell.setPadding(8);
             cell.setHorizontalAlignment(Element.ALIGN_CENTER);
             table.addCell(cell);

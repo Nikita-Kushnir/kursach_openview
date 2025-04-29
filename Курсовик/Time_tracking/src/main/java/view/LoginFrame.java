@@ -2,23 +2,24 @@ package view;
 
 import controller.AuthController;
 import model.User;
-
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 
 public class LoginFrame extends JFrame {
     private final JTextField loginField = new JTextField(15);
     private final JPasswordField passwordField = new JPasswordField(15);
 
     public LoginFrame() {
+        initializeUI();
+    }
+
+    private void initializeUI() {
         setTitle("Вход в систему");
-        setSize(300, 230);
+        setSize(300, 220);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
 
-        // Главная панель
         JPanel mainPanel = new JPanel(new GridBagLayout());
         mainPanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
 
@@ -41,7 +42,6 @@ public class LoginFrame extends JFrame {
 
         gbc.gridx = 1;
         loginField.setPreferredSize(new Dimension(150, 25));
-        loginField.setToolTipText("Введите ваш логин");
         mainPanel.add(loginField, gbc);
 
         // Поле пароля
@@ -51,7 +51,6 @@ public class LoginFrame extends JFrame {
 
         gbc.gridx = 1;
         passwordField.setPreferredSize(new Dimension(150, 25));
-        passwordField.setToolTipText("Введите ваш пароль");
         mainPanel.add(passwordField, gbc);
 
         // Кнопки
@@ -59,7 +58,6 @@ public class LoginFrame extends JFrame {
         JButton loginBtn = new JButton("Войти");
         JButton registerBtn = new JButton("Регистрация");
 
-        // Обработчики событий
         loginBtn.addActionListener(this::performLogin);
         registerBtn.addActionListener(e -> openRegistration());
 
@@ -82,6 +80,9 @@ public class LoginFrame extends JFrame {
 
         if (user != null) {
             switch (user.getRole()) {
+                case "ADMIN":
+                    new AdminFrame().setVisible(true);
+                    break;
                 case "EMPLOYEE":
                     new EmployeeFrame(user).setVisible(true);
                     break;

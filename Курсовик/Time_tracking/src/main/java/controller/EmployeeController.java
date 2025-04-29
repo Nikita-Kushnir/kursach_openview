@@ -37,13 +37,11 @@ public class EmployeeController {
     }
 
     // Методы для отпусков/больничных
-    public static boolean requestLeave(int userId, String type, LocalDate start, LocalDate end, String comment) {
-        if (start.isAfter(end)) {
-            System.err.println("Дата начала отпуска не может быть позже даты окончания");
-            return false;
-        }
-
-        String sql = "INSERT INTO leaves (user_id, type, start_date, end_date, comment) VALUES (?, ?, ?, ?, ?)";
+    public static boolean requestLeave(int userId, String type,
+                                       LocalDate start, LocalDate end,
+                                       String comment) {
+        String sql = "INSERT INTO leaves (user_id, type, start_date, end_date, comment, status) " +
+                "VALUES (?, ?, ?, ?, ?, 'PENDING')";
         try (Connection conn = DatabaseConnector.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
@@ -107,7 +105,8 @@ public class EmployeeController {
                             rs.getString("type"),
                             rs.getDate("start_date").toLocalDate(),
                             rs.getDate("end_date").toLocalDate(),
-                            rs.getString("comment")
+                            rs.getString("comment"),
+                            rs.getString("status")
                     ));
                 }
             }
